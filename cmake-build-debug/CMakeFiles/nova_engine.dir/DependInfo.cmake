@@ -12,12 +12,8 @@ set(CMAKE_DEPENDS_DEPENDENCY_FILES
   "/home/ryuzaki/Desktop/media_engine_test_2/src/nova_engine.cpp" "CMakeFiles/nova_engine.dir/src/nova_engine.cpp.o" "gcc" "CMakeFiles/nova_engine.dir/src/nova_engine.cpp.o.d"
   )
 
-# Targets to which this target links which contain Fortran sources.
-set(CMAKE_Fortran_TARGET_LINKED_INFO_FILES
-  )
-
-# Targets to which this target links which contain Fortran sources.
-set(CMAKE_Fortran_TARGET_FORWARD_LINKED_INFO_FILES
+# Targets to which this target links.
+set(CMAKE_TARGET_LINKED_INFO_FILES
   )
 
 # Fortran module output directory.
