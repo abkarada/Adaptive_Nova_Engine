@@ -10,11 +10,14 @@
 #include <optional>
 #include <climits>
 
-// Linux UDP (kontrol kanalı)
+// Linux UDP (kontrol kanalı - raw)
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <unistd.h>
+
+// GLib/GIO
+#include <gio/gio.h>
 
 static std::atomic<bool> g_stop(false);
 static GMainLoop* g_loop = nullptr;
@@ -26,10 +29,10 @@ static void sig_handler(int){
 
 struct Args {
   std::string peer_ip;
-  int video_send_port;
-  int video_listen_port;
-  int ctrl_send_port;
-  int ctrl_listen_port;
+
+  // === YENİ: tek port tasarımı ===
+  int media_port; // hem send hem recv (RTP)
+  int ctrl_port;  // hem send hem recv (PING/PONG)
 
   bool use_ts = false;
   int  mtu = 1200;
@@ -260,26 +263,60 @@ static bool auto_select_best_camera(Args& a) {
   return true;
 }
 
-// ---- kontrol kanalı (PING/PONG) ----
+// ---- ortak UDP GSocket (tek port) oluşturucu ----
+static GSocket* create_shared_udp_socket(int port) {
+  GError* err = nullptr;
+  GSocket* s = g_socket_new(G_SOCKET_FAMILY_IPV4, G_SOCKET_TYPE_DATAGRAM, G_SOCKET_PROTOCOL_UDP, &err);
+  if (!s) {
+    std::cerr << "[udp] g_socket_new failed: " << (err? err->message : "") << "\n";
+    if (err) g_error_free(err);
+    return nullptr;
+  }
+
+  // REUSEADDR/REUSEPORT → aynı portu hem send hem recv için kullanabilmek adına
+  g_socket_set_option(s, SOL_SOCKET, SO_REUSEADDR, 1, nullptr);
+#ifdef SO_REUSEPORT
+  g_socket_set_option(s, SOL_SOCKET, SO_REUSEPORT, 1, nullptr);
+#endif
+
+  GInetAddress* any = g_inet_address_new_any(G_SOCKET_FAMILY_IPV4);
+  GSocketAddress* sa = g_inet_socket_address_new(any, port);
+  g_object_unref(any);
+
+  if (!g_socket_bind(s, sa, TRUE, &err)) {
+    std::cerr << "[udp] bind " << port << " failed: " << (err? err->message : "") << "\n";
+    if (err) g_error_free(err);
+    g_object_unref(sa);
+    g_object_unref(s);
+    return nullptr;
+  }
+  g_object_unref(sa);
+  return s;
+}
+
+// ---- kontrol kanalı (PING/PONG) — tek soket, tek port ----
 class ControlChannel {
  public:
-  ControlChannel(const std::string& peer_ip, int send_port, int listen_port)
-  : peer_ip_(peer_ip), send_port_(send_port), listen_port_(listen_port) {}
+  ControlChannel(const std::string& peer_ip, int port)
+  : peer_ip_(peer_ip), port_(port) {}
 
   bool start() {
-    tx_fd_ = ::socket(AF_INET, SOCK_DGRAM, 0);
-    if (tx_fd_ < 0) { perror("socket tx"); return false; }
-    rx_fd_ = ::socket(AF_INET, SOCK_DGRAM, 0);
-    if (rx_fd_ < 0) { perror("socket rx"); return false; }
+    fd_ = ::socket(AF_INET, SOCK_DGRAM, 0);
+    if (fd_ < 0) { perror("socket ctrl"); return false; }
 
+    int yes=1;
+    setsockopt(fd_, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
+#ifdef SO_REUSEPORT
+    setsockopt(fd_, SOL_SOCKET, SO_REUSEPORT, &yes, sizeof(yes));
+#endif
     sockaddr_in addr{}; addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = INADDR_ANY;
-    addr.sin_port = htons(listen_port_);
-    if (bind(rx_fd_, (sockaddr*)&addr, sizeof(addr)) < 0) { perror("bind rx"); return false; }
+    addr.sin_port = htons(port_);
+    if (bind(fd_, (sockaddr*)&addr, sizeof(addr)) < 0) { perror("bind ctrl"); return false; }
 
     memset(&peer_addr_, 0, sizeof(peer_addr_));
     peer_addr_.sin_family = AF_INET;
-    peer_addr_.sin_port = htons(send_port_);
+    peer_addr_.sin_port = htons(port_);
     inet_pton(AF_INET, peer_ip_.c_str(), &peer_addr_.sin_addr);
 
     recv_thr_ = std::thread([this]{ this->recv_loop(); });
@@ -290,18 +327,17 @@ class ControlChannel {
     g_stop = true;
     if (send_thr_.joinable()) send_thr_.join();
     if (recv_thr_.joinable()) recv_thr_.join();
-    if (tx_fd_>=0) close(tx_fd_);
-    if (rx_fd_>=0) close(rx_fd_);
+    if (fd_>=0) close(fd_);
   }
 
  private:
   void send_loop() {
     using namespace std::chrono;
     while (!g_stop) {
-      auto now = duration_cast<milliseconds>(steady_clock::now().time_since_epoch()).count();
+      long long now = duration_cast<milliseconds>(steady_clock::now().time_since_epoch()).count();
       char buf[64];
-      int n = snprintf(buf, sizeof(buf), "PING %lld", (long long)now);
-      sendto(tx_fd_, buf, n, 0, (sockaddr*)&peer_addr_, sizeof(peer_addr_));
+      int n = snprintf(buf, sizeof(buf), "PING %lld", now);
+      sendto(fd_, buf, n, 0, (sockaddr*)&peer_addr_, sizeof(peer_addr_));
       std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
   }
@@ -309,12 +345,12 @@ class ControlChannel {
     char buf[256];
     while (!g_stop) {
       sockaddr_in src{}; socklen_t sl = sizeof(src);
-      int n = recvfrom(rx_fd_, buf, sizeof(buf)-1, 0, (sockaddr*)&src, &sl);
+      int n = recvfrom(fd_, buf, sizeof(buf)-1, 0, (sockaddr*)&src, &sl);
       if (n <= 0) continue;
       buf[n] = 0;
       if (!strncmp(buf, "PING ", 5)) {
         buf[1] = 'O'; buf[2] = 'N'; buf[3] = 'G';
-        sendto(tx_fd_, buf, n, 0, (sockaddr*)&src, sizeof(src));
+        sendto(fd_, buf, n, 0, (sockaddr*)&src, sizeof(src));
       } else if (!strncmp(buf, "PONG ", 5)) {
         long long t0 = atoll(buf+5);
         auto now = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -325,8 +361,8 @@ class ControlChannel {
   }
 
   std::string peer_ip_;
-  int send_port_, listen_port_;
-  int tx_fd_ = -1, rx_fd_ = -1;
+  int port_;
+  int fd_ = -1;
   sockaddr_in peer_addr_{};
   std::thread send_thr_, recv_thr_;
 };
@@ -371,8 +407,8 @@ static gboolean stdin_cb(GIOChannel* ch, GIOCondition cond, gpointer) {
   return TRUE; // watch devam
 }
 
-// ---- sender ----
-static GstElement* build_sender(const Args& a) {
+// ---- sender (tek port için paylaşılan socket kullanır) ----
+static GstElement* build_sender(const Args& a, GSocket* shared_sock) {
   std::string enc_name = choose_h264_encoder();
   std::cerr << "[nova] encoder: " << enc_name << std::endl;
 
@@ -467,8 +503,13 @@ static GstElement* build_sender(const Args& a) {
   set_int(pay, "pt", 96); set_int(pay, "mtu", a.mtu); set_int(pay, "config-interval", 1);
 
   GstElement *sink = gst_element_factory_make("udpsink", "udpsink"); CHECK_ELEM(sink, "udpsink");
-  set_str(sink, "host", a.peer_ip); set_int(sink, "port", a.video_send_port);
+  // hedef: karşı tarafın media_port'u
+  set_str(sink, "host", a.peer_ip);
+  set_int(sink, "port", a.media_port);
   set_bool(sink, "sync", FALSE); set_bool(sink, "async", FALSE);
+
+  // === KRİTİK: aynı porttan gönderim için aynı GSocket'i kullan ===
+  g_object_set(G_OBJECT(sink), "socket", g_object_ref(shared_sock), NULL);
 
   gst_bin_add_many(GST_BIN(pipe), q1, enc, parse, pay, sink, NULL);
   if (!gst_element_link_many(tee, q1, enc, parse, pay, sink, NULL)) return nullptr;
@@ -481,14 +522,17 @@ static GstElement* build_sender(const Args& a) {
   return pipe;
 }
 
-// ---- receiver ----
-static GstElement* build_receiver(const Args& a) {
+// ---- receiver (tek port için paylaşılan socket kullanır) ----
+static GstElement* build_receiver(const Args& a, GSocket* shared_sock) {
   GstElement* pipe = gst_pipeline_new("receiver");
 
   auto src = gst_element_factory_make("udpsrc", "udpsrc");
   CHECK_ELEM(src, "udpsrc");
-  set_int(src, "port", a.video_listen_port);
-  set_int(src, "buffer-size", 8*1024*1024);
+
+  // === KRİTİK: udpsrc de aynı GSocket'i kullanıyor (aynı port) ===
+  g_object_set(G_OBJECT(src), "socket", g_object_ref(shared_sock), NULL);
+
+  // Not: "port" vermiyoruz; socket zaten bağlı (bind) durumda.
 
   auto capf = gst_element_factory_make("capsfilter", "capf");
   CHECK_ELEM(capf, "capsfilter");
@@ -560,20 +604,18 @@ int main(int argc, char** argv) {
   std::signal(SIGINT, sig_handler);
   std::signal(SIGTERM, sig_handler);
 
-  if (argc < 6) {
-    std::cerr << "Kullanım: ./nova_engine <peer_ip> <video_send_port> <video_listen_port> <ctrl_send_port> <ctrl_listen_port>\n";
+  if (argc < 4) {
+    std::cerr << "Kullanım: ./nova_engine <peer_ip> <media_port> <ctrl_port>\n";
     return 1;
   }
 
   Args a;
-  a.peer_ip           = argv[1];
-  a.video_send_port   = std::stoi(argv[2]);
-  a.video_listen_port = std::stoi(argv[3]);
-  a.ctrl_send_port    = std::stoi(argv[4]);
-  a.ctrl_listen_port  = std::stoi(argv[5]);
+  a.peer_ip    = argv[1];
+  a.media_port = std::stoi(argv[2]);
+  a.ctrl_port  = std::stoi(argv[3]);
 
   if (!auto_select_best_camera(a)) {
-    std::cerr << "Kamera bulunamadı veya kaps doğrulanamadı.\n";
+    std::cerr << "Kamera bulunamadı veya caps doğrulanamadı.\n";
     return 1;
   }
 
@@ -582,12 +624,19 @@ int main(int argc, char** argv) {
             << " " << a.width << "x" << a.height
             << "@" << a.fps << " selected\n";
 
-  ControlChannel ctrl(a.peer_ip, a.ctrl_send_port, a.ctrl_listen_port);
-  if (!ctrl.start()) { std::cerr << "Control channel start failed\n"; return 1; }
+  // === TEK MEDYA PORTU İÇİN ORTAK GSOCKET ===
+  GSocket* media_sock = create_shared_udp_socket(a.media_port);
+  if (!media_sock) {
+    std::cerr << "Medya soketi oluşturulamadı.\n";
+    return 1;
+  }
 
-  auto sender   = build_sender(a);
-  auto receiver = build_receiver(a);
-  if (!sender || !receiver) { ctrl.stop(); return 1; }
+  ControlChannel ctrl(a.peer_ip, a.ctrl_port);
+  if (!ctrl.start()) { std::cerr << "Control channel start failed\n"; g_object_unref(media_sock); return 1; }
+
+  auto sender   = build_sender(a, media_sock);
+  auto receiver = build_receiver(a, media_sock);
+  if (!sender || !receiver) { ctrl.stop(); g_object_unref(media_sock); return 1; }
 
   gst_element_set_state(receiver, GST_STATE_PLAYING);
   gst_element_set_state(sender,   GST_STATE_PLAYING);
@@ -603,7 +652,7 @@ int main(int argc, char** argv) {
   g_main_loop_run(g_loop);
 
   // ---- shutdown ----
-  gst_element_set_state(sender, GST_STATE_NULL);
+  gst_element_set_state(sender,   GST_STATE_NULL);
   gst_element_set_state(receiver, GST_STATE_NULL);
   gst_object_unref(sender);
   gst_object_unref(receiver);
@@ -611,5 +660,6 @@ int main(int argc, char** argv) {
 
   if (ch) g_io_channel_unref(ch);
   if (g_loop) { g_main_loop_unref(g_loop); g_loop=nullptr; }
+  if (media_sock) g_object_unref(media_sock);
   return 0;
 }

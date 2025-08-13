@@ -1,0 +1,1 @@
+/usr/bin/c++ -g CMakeFiles/nova_engine.dir/src/nova_engine.cpp.o CMakeFiles/nova_engine.dir/src/gpu_detect.cpp.o -o nova_engine  -lgstrtp-1.0 -lgstpbutils-1.0 -lgstvideo-1.0 -lgstaudio-1.0 -lgstbase-1.0 -lgstreamer-1.0 -lgobject-2.0 -lglib-2.0 -lpthread
