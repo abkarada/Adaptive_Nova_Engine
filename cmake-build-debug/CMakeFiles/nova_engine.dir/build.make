@@ -108,9 +108,6 @@ nova_engine_EXTERNAL_OBJECTS =
 nova_engine: CMakeFiles/nova_engine.dir/src/nova_engine.cpp.o
 nova_engine: CMakeFiles/nova_engine.dir/src/gpu_detect.cpp.o
 nova_engine: CMakeFiles/nova_engine.dir/build.make
-nova_engine: /usr/lib/x86_64-linux-gnu/libisal.so
-nova_engine: /usr/lib/x86_64-linux-gnu/libcudart_static.a
-nova_engine: /usr/lib/x86_64-linux-gnu/librt.a
 nova_engine: CMakeFiles/nova_engine.dir/link.txt
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/home/ryuzaki/Desktop/media_engine_test_2/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Linking CXX executable nova_engine"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/nova_engine.dir/link.txt --verbose=$(VERBOSE)

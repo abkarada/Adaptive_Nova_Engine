@@ -69,24 +69,10 @@ include CMakeFiles/nova_engine.dir/progress.make
 # Include the compile flags for this target's objects.
 include CMakeFiles/nova_engine.dir/flags.make
 
-CMakeFiles/nova_engine.dir/src/nova_engine.cpp.o: CMakeFiles/nova_engine.dir/flags.make
-CMakeFiles/nova_engine.dir/src/nova_engine.cpp.o: ../src/nova_engine.cpp
-CMakeFiles/nova_engine.dir/src/nova_engine.cpp.o: CMakeFiles/nova_engine.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ryuzaki/Desktop/media_engine_test_2/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/nova_engine.dir/src/nova_engine.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/nova_engine.dir/src/nova_engine.cpp.o -MF CMakeFiles/nova_engine.dir/src/nova_engine.cpp.o.d -o CMakeFiles/nova_engine.dir/src/nova_engine.cpp.o -c /home/ryuzaki/Desktop/media_engine_test_2/src/nova_engine.cpp
-
-CMakeFiles/nova_engine.dir/src/nova_engine.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/nova_engine.dir/src/nova_engine.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ryuzaki/Desktop/media_engine_test_2/src/nova_engine.cpp > CMakeFiles/nova_engine.dir/src/nova_engine.cpp.i
-
-CMakeFiles/nova_engine.dir/src/nova_engine.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/nova_engine.dir/src/nova_engine.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ryuzaki/Desktop/media_engine_test_2/src/nova_engine.cpp -o CMakeFiles/nova_engine.dir/src/nova_engine.cpp.s
-
 CMakeFiles/nova_engine.dir/src/gpu_detect.cpp.o: CMakeFiles/nova_engine.dir/flags.make
 CMakeFiles/nova_engine.dir/src/gpu_detect.cpp.o: ../src/gpu_detect.cpp
 CMakeFiles/nova_engine.dir/src/gpu_detect.cpp.o: CMakeFiles/nova_engine.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ryuzaki/Desktop/media_engine_test_2/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/nova_engine.dir/src/gpu_detect.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ryuzaki/Desktop/media_engine_test_2/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/nova_engine.dir/src/gpu_detect.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/nova_engine.dir/src/gpu_detect.cpp.o -MF CMakeFiles/nova_engine.dir/src/gpu_detect.cpp.o.d -o CMakeFiles/nova_engine.dir/src/gpu_detect.cpp.o -c /home/ryuzaki/Desktop/media_engine_test_2/src/gpu_detect.cpp
 
 CMakeFiles/nova_engine.dir/src/gpu_detect.cpp.i: cmake_force
@@ -97,22 +83,99 @@ CMakeFiles/nova_engine.dir/src/gpu_detect.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/nova_engine.dir/src/gpu_detect.cpp.s"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ryuzaki/Desktop/media_engine_test_2/src/gpu_detect.cpp -o CMakeFiles/nova_engine.dir/src/gpu_detect.cpp.s
 
+CMakeFiles/nova_engine.dir/src/media/gpu_memory.cpp.o: CMakeFiles/nova_engine.dir/flags.make
+CMakeFiles/nova_engine.dir/src/media/gpu_memory.cpp.o: ../src/media/gpu_memory.cpp
+CMakeFiles/nova_engine.dir/src/media/gpu_memory.cpp.o: CMakeFiles/nova_engine.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ryuzaki/Desktop/media_engine_test_2/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/nova_engine.dir/src/media/gpu_memory.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/nova_engine.dir/src/media/gpu_memory.cpp.o -MF CMakeFiles/nova_engine.dir/src/media/gpu_memory.cpp.o.d -o CMakeFiles/nova_engine.dir/src/media/gpu_memory.cpp.o -c /home/ryuzaki/Desktop/media_engine_test_2/src/media/gpu_memory.cpp
+
+CMakeFiles/nova_engine.dir/src/media/gpu_memory.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/nova_engine.dir/src/media/gpu_memory.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ryuzaki/Desktop/media_engine_test_2/src/media/gpu_memory.cpp > CMakeFiles/nova_engine.dir/src/media/gpu_memory.cpp.i
+
+CMakeFiles/nova_engine.dir/src/media/gpu_memory.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/nova_engine.dir/src/media/gpu_memory.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ryuzaki/Desktop/media_engine_test_2/src/media/gpu_memory.cpp -o CMakeFiles/nova_engine.dir/src/media/gpu_memory.cpp.s
+
+CMakeFiles/nova_engine.dir/src/network/network_profile.cpp.o: CMakeFiles/nova_engine.dir/flags.make
+CMakeFiles/nova_engine.dir/src/network/network_profile.cpp.o: ../src/network/network_profile.cpp
+CMakeFiles/nova_engine.dir/src/network/network_profile.cpp.o: CMakeFiles/nova_engine.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ryuzaki/Desktop/media_engine_test_2/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object CMakeFiles/nova_engine.dir/src/network/network_profile.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/nova_engine.dir/src/network/network_profile.cpp.o -MF CMakeFiles/nova_engine.dir/src/network/network_profile.cpp.o.d -o CMakeFiles/nova_engine.dir/src/network/network_profile.cpp.o -c /home/ryuzaki/Desktop/media_engine_test_2/src/network/network_profile.cpp
+
+CMakeFiles/nova_engine.dir/src/network/network_profile.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/nova_engine.dir/src/network/network_profile.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ryuzaki/Desktop/media_engine_test_2/src/network/network_profile.cpp > CMakeFiles/nova_engine.dir/src/network/network_profile.cpp.i
+
+CMakeFiles/nova_engine.dir/src/network/network_profile.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/nova_engine.dir/src/network/network_profile.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ryuzaki/Desktop/media_engine_test_2/src/network/network_profile.cpp -o CMakeFiles/nova_engine.dir/src/network/network_profile.cpp.s
+
+CMakeFiles/nova_engine.dir/src/network/shared_socket.cpp.o: CMakeFiles/nova_engine.dir/flags.make
+CMakeFiles/nova_engine.dir/src/network/shared_socket.cpp.o: ../src/network/shared_socket.cpp
+CMakeFiles/nova_engine.dir/src/network/shared_socket.cpp.o: CMakeFiles/nova_engine.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ryuzaki/Desktop/media_engine_test_2/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Building CXX object CMakeFiles/nova_engine.dir/src/network/shared_socket.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/nova_engine.dir/src/network/shared_socket.cpp.o -MF CMakeFiles/nova_engine.dir/src/network/shared_socket.cpp.o.d -o CMakeFiles/nova_engine.dir/src/network/shared_socket.cpp.o -c /home/ryuzaki/Desktop/media_engine_test_2/src/network/shared_socket.cpp
+
+CMakeFiles/nova_engine.dir/src/network/shared_socket.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/nova_engine.dir/src/network/shared_socket.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ryuzaki/Desktop/media_engine_test_2/src/network/shared_socket.cpp > CMakeFiles/nova_engine.dir/src/network/shared_socket.cpp.i
+
+CMakeFiles/nova_engine.dir/src/network/shared_socket.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/nova_engine.dir/src/network/shared_socket.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ryuzaki/Desktop/media_engine_test_2/src/network/shared_socket.cpp -o CMakeFiles/nova_engine.dir/src/network/shared_socket.cpp.s
+
+CMakeFiles/nova_engine.dir/src/network/udp_stats.cpp.o: CMakeFiles/nova_engine.dir/flags.make
+CMakeFiles/nova_engine.dir/src/network/udp_stats.cpp.o: ../src/network/udp_stats.cpp
+CMakeFiles/nova_engine.dir/src/network/udp_stats.cpp.o: CMakeFiles/nova_engine.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ryuzaki/Desktop/media_engine_test_2/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Building CXX object CMakeFiles/nova_engine.dir/src/network/udp_stats.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/nova_engine.dir/src/network/udp_stats.cpp.o -MF CMakeFiles/nova_engine.dir/src/network/udp_stats.cpp.o.d -o CMakeFiles/nova_engine.dir/src/network/udp_stats.cpp.o -c /home/ryuzaki/Desktop/media_engine_test_2/src/network/udp_stats.cpp
+
+CMakeFiles/nova_engine.dir/src/network/udp_stats.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/nova_engine.dir/src/network/udp_stats.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ryuzaki/Desktop/media_engine_test_2/src/network/udp_stats.cpp > CMakeFiles/nova_engine.dir/src/network/udp_stats.cpp.i
+
+CMakeFiles/nova_engine.dir/src/network/udp_stats.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/nova_engine.dir/src/network/udp_stats.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ryuzaki/Desktop/media_engine_test_2/src/network/udp_stats.cpp -o CMakeFiles/nova_engine.dir/src/network/udp_stats.cpp.s
+
+CMakeFiles/nova_engine.dir/src/nova_engine.cpp.o: CMakeFiles/nova_engine.dir/flags.make
+CMakeFiles/nova_engine.dir/src/nova_engine.cpp.o: ../src/nova_engine.cpp
+CMakeFiles/nova_engine.dir/src/nova_engine.cpp.o: CMakeFiles/nova_engine.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ryuzaki/Desktop/media_engine_test_2/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Building CXX object CMakeFiles/nova_engine.dir/src/nova_engine.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/nova_engine.dir/src/nova_engine.cpp.o -MF CMakeFiles/nova_engine.dir/src/nova_engine.cpp.o.d -o CMakeFiles/nova_engine.dir/src/nova_engine.cpp.o -c /home/ryuzaki/Desktop/media_engine_test_2/src/nova_engine.cpp
+
+CMakeFiles/nova_engine.dir/src/nova_engine.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/nova_engine.dir/src/nova_engine.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ryuzaki/Desktop/media_engine_test_2/src/nova_engine.cpp > CMakeFiles/nova_engine.dir/src/nova_engine.cpp.i
+
+CMakeFiles/nova_engine.dir/src/nova_engine.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/nova_engine.dir/src/nova_engine.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ryuzaki/Desktop/media_engine_test_2/src/nova_engine.cpp -o CMakeFiles/nova_engine.dir/src/nova_engine.cpp.s
+
 # Object files for target nova_engine
 nova_engine_OBJECTS = \
-"CMakeFiles/nova_engine.dir/src/nova_engine.cpp.o" \
-"CMakeFiles/nova_engine.dir/src/gpu_detect.cpp.o"
+"CMakeFiles/nova_engine.dir/src/gpu_detect.cpp.o" \
+"CMakeFiles/nova_engine.dir/src/media/gpu_memory.cpp.o" \
+"CMakeFiles/nova_engine.dir/src/network/network_profile.cpp.o" \
+"CMakeFiles/nova_engine.dir/src/network/shared_socket.cpp.o" \
+"CMakeFiles/nova_engine.dir/src/network/udp_stats.cpp.o" \
+"CMakeFiles/nova_engine.dir/src/nova_engine.cpp.o"
 
 # External object files for target nova_engine
 nova_engine_EXTERNAL_OBJECTS =
 
-nova_engine: CMakeFiles/nova_engine.dir/src/nova_engine.cpp.o
 nova_engine: CMakeFiles/nova_engine.dir/src/gpu_detect.cpp.o
+nova_engine: CMakeFiles/nova_engine.dir/src/media/gpu_memory.cpp.o
+nova_engine: CMakeFiles/nova_engine.dir/src/network/network_profile.cpp.o
+nova_engine: CMakeFiles/nova_engine.dir/src/network/shared_socket.cpp.o
+nova_engine: CMakeFiles/nova_engine.dir/src/network/udp_stats.cpp.o
+nova_engine: CMakeFiles/nova_engine.dir/src/nova_engine.cpp.o
 nova_engine: CMakeFiles/nova_engine.dir/build.make
 nova_engine: /usr/lib/x86_64-linux-gnu/libisal.so
-nova_engine: /usr/lib/x86_64-linux-gnu/libcudart_static.a
-nova_engine: /usr/lib/x86_64-linux-gnu/librt.a
+nova_engine: /usr/lib/x86_64-linux-gnu/libisal.so
 nova_engine: CMakeFiles/nova_engine.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/ryuzaki/Desktop/media_engine_test_2/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Linking CXX executable nova_engine"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/ryuzaki/Desktop/media_engine_test_2/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_7) "Linking CXX executable nova_engine"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/nova_engine.dir/link.txt --verbose=$(VERBOSE)
 
 # Rule to build all files generated by this target.

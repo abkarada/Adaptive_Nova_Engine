@@ -10,11 +10,6 @@
 #include <optional>
 #include <climits>
 #include <tuple>
-#include <mutex>
-#include <map>
-#include <cmath>
-#include <algorithm>
-#include <memory>
 
 // Linux UDP (kontrol kanalı - raw)
 #include <arpa/inet.h>
@@ -24,229 +19,15 @@
 
 // GLib/GIO
 #include <gio/gio.h>
-#include <gst/app/gstappsrc.h>
 
 // Reed-Solomon
 #include <isa-l/erasure_code.h>
 
-// Zaman yardımcıları
-static inline uint64_t now_us() {
-    return std::chrono::duration_cast<std::chrono::microseconds>(
-        std::chrono::high_resolution_clock::now().time_since_epoch()).count();
-}
-
+// Chunk yapıları
+#pragma pack(push, 1)
 // RTP sabitler
 static constexpr uint16_t RTP_HEADER_SIZE = 12;
 static constexpr uint32_t RTP_CLOCK_RATE = 90000;
-
-// Zero-copy buffer flag
-#ifndef GST_BUFFER_FLAG_ZERO_COPY
-#define GST_BUFFER_FLAG_ZERO_COPY (GST_BUFFER_FLAG_LAST << 1)
-#endif
-
-#pragma pack(push, 1)
-// Chunk yapıları
-struct ChunkHeader {
-    uint32_t magic = 0xABCD1234;
-    uint32_t frame_id = 0;        // Video frame ID
-    uint16_t chunk_index = 0;     // Chunk sıra no
-    uint16_t total_chunks = 0;    // Frame'deki toplam chunk
-    uint16_t k_data = 0;          // FEC data chunk sayısı
-    uint16_t r_parity = 0;        // FEC parity chunk sayısı
-    uint16_t payload_bytes = 0;   // Chunk payload boyutu
-    uint32_t total_frame_bytes = 0;// Frame toplam boyutu
-    uint32_t rtp_timestamp = 0;   // RTP ile senkronize timestamp
-    uint16_t rtp_seq = 0;         // RTP sequence number
-    uint8_t  flags = 0;           // bit0: parity, bit1: keyframe
-    uint32_t checksum = 0;        // FNV-1a checksum
-};
-#pragma pack(pop)
-
-// UDP profil metrikleri
-struct UDPStats {
-    double packet_loss = 0.0;    // paket kayıp oranı
-    double avg_rtt_ms = 0.0;     // ortalama RTT
-    double jitter_ms = 0.0;      // jitter (RTT varyansı)
-    double burst_loss = 0.0;     // ardışık kayıp oranı
-    double bandwidth_mbps = 0.0; // tahmini bant genişliği
-    
-    std::vector<double> rtt_samples;  // RTT örnekleri (jitter için)
-    std::vector<bool> loss_pattern;   // kayıp paterni (burst için)
-    static constexpr size_t MAX_SAMPLES = 100;
-    
-    void update_rtt(double rtt_ms) {
-        // EWMA ile RTT güncelle
-        avg_rtt_ms = (avg_rtt_ms > 0) ? (avg_rtt_ms * 0.8 + rtt_ms * 0.2) : rtt_ms;
-        
-        // Jitter hesapla
-        rtt_samples.push_back(rtt_ms);
-        if (rtt_samples.size() > MAX_SAMPLES) rtt_samples.erase(rtt_samples.begin());
-        if (rtt_samples.size() >= 2) {
-            double sum = 0, mean = avg_rtt_ms;
-            for (double s : rtt_samples) sum += (s - mean) * (s - mean);
-            jitter_ms = std::sqrt(sum / rtt_samples.size());
-        }
-    }
-    
-    void update_loss(bool is_lost) {
-        // Kayıp paterni güncelle
-        loss_pattern.push_back(is_lost);
-        if (loss_pattern.size() > MAX_SAMPLES) loss_pattern.erase(loss_pattern.begin());
-        
-        // Genel kayıp oranı
-        size_t lost = 0;
-        for (bool l : loss_pattern) if (l) lost++;
-        packet_loss = loss_pattern.empty() ? 0.0 : (double)lost / loss_pattern.size();
-        
-        // Burst kayıp analizi
-        size_t bursts = 0, burst_len = 0;
-        for (bool l : loss_pattern) {
-            if (l) {
-                burst_len++;
-                if (burst_len == 2) bursts++; // 2+ ardışık kayıp = burst
-            } else {
-                burst_len = 0;
-            }
-        }
-        burst_loss = loss_pattern.empty() ? 0.0 : (double)bursts / loss_pattern.size();
-    }
-    
-    void update_bandwidth(double mbps) {
-        // EWMA ile bant genişliği güncelle
-        bandwidth_mbps = (bandwidth_mbps > 0) 
-            ? (bandwidth_mbps * 0.8 + mbps * 0.2) 
-            : mbps;
-    }
-};
-
-// Network profili
-struct NetworkProfile {
-    // MTU yönetimi
-    struct MTUConfig {
-        int base_mtu = 1200;     // Temel MTU boyutu
-        int rtp_mtu = 1188;      // RTP header düşülmüş MTU
-        int chunk_mtu = 1176;    // Chunk header düşülmüş MTU
-        
-        void update(int new_base) {
-            base_mtu = new_base;
-            rtp_mtu = base_mtu - RTP_HEADER_SIZE;
-            chunk_mtu = rtp_mtu - sizeof(ChunkHeader);
-        }
-
-        friend std::ostream& operator<<(std::ostream& os, const MTUConfig& cfg) {
-            return os << cfg.base_mtu;
-        }
-    } mtu;
-    
-    int jitter_buf_ms = 500;     // Jitter buffer latency
-    int socket_buf_kb = 4096;    // Soket buffer boyutu (KB)
-    int bitrate_kbps = 5000;     // Hedef bitrate
-    
-    // Profil skorlama (düşük = iyi)
-    double score() const {
-        UDPStats& stats = g_udp_stats; // global UDP istatistikleri
-        double loss_penalty = stats.packet_loss * 100.0;
-        double burst_penalty = stats.burst_loss * 200.0;
-        double jitter_penalty = stats.jitter_ms * 0.5;
-        double bw_penalty = (stats.bandwidth_mbps > 0) 
-            ? std::max(0.0, (double)bitrate_kbps/1000.0 - stats.bandwidth_mbps) * 10.0
-            : 0.0;
-        return loss_penalty + burst_penalty + jitter_penalty + bw_penalty;
-    }
-    
-    // MTU optimizasyonu
-    void optimize_mtu() {
-        UDPStats& stats = g_udp_stats;
-        
-        // Baz MTU seçimi (bitrate'e göre)
-        int base_mtu = 1200;
-        if (bitrate_kbps <= 6000)  base_mtu = 800;
-        else if (bitrate_kbps <= 9000)  base_mtu = 960;
-        else if (bitrate_kbps <= 12000) base_mtu = 1000;
-        
-        // Koşullara göre ayarla
-        if (stats.packet_loss > 0.15 || stats.burst_loss > 0.05) {
-            base_mtu = std::min(base_mtu, 800); // Yüksek kayıpta küçült
-        }
-        if (stats.jitter_ms > 50) {
-            base_mtu = std::min(base_mtu, 900); // Yüksek jitter'da küçült
-        }
-        
-        // Kademeli değişim (ani değişimlerden kaçın)
-        int diff = base_mtu - mtu.base_mtu;
-        if (std::abs(diff) >= 100) {
-            mtu.update(mtu.base_mtu + ((diff > 0) ? 100 : -100));
-        }
-    }
-    
-    // Jitter buffer optimizasyonu
-    void optimize_jitter_buffer() {
-        UDPStats& stats = g_udp_stats;
-        
-        // RTT ve jitter bazlı hedef hesapla
-        int target_latency = (int)(stats.avg_rtt_ms * 1.5 + stats.jitter_ms * 2.0);
-        target_latency = std::max(100, std::min(2000, target_latency));
-        
-        // Burst kayıp varsa buffer'ı arttır
-        if (stats.burst_loss > 0.02) {
-            target_latency = (int)(target_latency * 1.2);
-        }
-        
-        // Kademeli değişim
-        int diff = target_latency - jitter_buf_ms;
-        if (std::abs(diff) >= 50) {
-            jitter_buf_ms += (diff > 0) ? 50 : -50;
-        }
-    }
-    
-    // Soket buffer optimizasyonu
-    void optimize_socket_buffer() {
-        UDPStats& stats = g_udp_stats;
-        
-        // Baz buffer boyutu (bitrate'e göre)
-        int base_kb = 4096;
-        if (bitrate_kbps > 10000) base_kb = 8192;
-        if (bitrate_kbps > 20000) base_kb = 16384;
-        
-        // Jitter ve burst kayıp varsa arttır
-        if (stats.jitter_ms > 30 || stats.burst_loss > 0.02) {
-            base_kb = (int)(base_kb * 1.5);
-        }
-        
-        // Kademeli değişim
-        int diff = base_kb - socket_buf_kb;
-        if (std::abs(diff) >= 1024) {
-            socket_buf_kb += (diff > 0) ? 1024 : -1024;
-        }
-    }
-    
-    // Bitrate optimizasyonu
-    void optimize_bitrate(int max_kbps) {
-        UDPStats& stats = g_udp_stats;
-        
-        // Bant genişliği bazlı hedef
-        int target = (stats.bandwidth_mbps > 0)
-            ? (int)(stats.bandwidth_mbps * 1000.0 * 0.8) // %80 headroom
-            : bitrate_kbps;
-            
-        // Kayıp ve jitter durumunda düşür
-        if (stats.packet_loss > 0.1) {
-            target = (int)(target * 0.8);
-        }
-        if (stats.jitter_ms > 50) {
-            target = (int)(target * 0.9);
-        }
-        
-        // Sınırlar
-        target = std::max(2000, std::min(max_kbps, target));
-        
-        // Kademeli değişim
-        int diff = target - bitrate_kbps;
-        if (std::abs(diff) >= 500) {
-            bitrate_kbps += (diff > 0) ? 500 : -500;
-        }
-    }
-};
 
 struct ChunkHeader {
     uint32_t magic = 0xABCD1234;
@@ -323,7 +104,7 @@ public:
 
 // Entegre buffer yönetimi
 class IntegratedBufferManager {
-public:
+private:
     struct FrameBuffer {
         uint32_t frame_id = 0;
         uint32_t rtp_timestamp = 0;
@@ -336,22 +117,6 @@ public:
         std::vector<uint8_t> parity_present;
         std::chrono::steady_clock::time_point first_seen;
         bool is_keyframe = false;
-
-        void init(const ChunkHeader& hdr) {
-            frame_id = hdr.frame_id;
-            k = hdr.k_data;
-            r = hdr.r_parity;
-            m = hdr.total_chunks;
-            payload_size = hdr.payload_bytes;
-            total_frame_bytes = hdr.total_frame_bytes;
-            is_keyframe = (hdr.flags & 0x02) != 0;
-            
-            data_blocks.resize(k);
-            parity_blocks.resize(r);
-            data_present.assign(k, 0);
-            parity_present.assign(r, 0);
-            first_seen = std::chrono::steady_clock::now();
-        }
     };
     
     std::mutex mtx;
@@ -441,7 +206,7 @@ private:
     }
 };
 
-static bool try_reconstruct_frame(IntegratedBufferManager::FrameBuffer& fb, std::vector<uint8_t>& out_bytes) {
+static bool try_reconstruct_frame(ChunkBuffer& fb, std::vector<uint8_t>& out_bytes) {
     const int k = fb.k, r = fb.r, m = fb.m, len = fb.payload_size;
 
     int have_data = 0; for (int i=0; i<k; ++i) have_data += fb.data_present[i]?1:0;
@@ -639,11 +404,6 @@ static ChunkSet build_chunks_with_fec(const uint8_t* data, size_t size, size_t m
 
 static std::atomic<bool> g_stop(false);
 static GMainLoop* g_loop = nullptr;
-static NetworkProfile g_net_profile;
-static std::vector<UDPStats> g_last_stats;
-static UDPStats g_udp_stats;
-static GstElement* g_rtp_pay = nullptr;
-static std::shared_ptr<SharedUDPSocket> g_shared_socket;
 
 // ---------- Headless/ENV helper ----------
 static void ensure_runtime_env() {
@@ -1148,12 +908,12 @@ public:
 };
 
 // Global soket instance
-static std::shared_ptr<SharedUDPSocket> g_shared_socket;
+static std::unique_ptr<SharedUDPSocket> g_shared_socket;
 
 // Eski API için wrapper (geriye uyumluluk)
 static GSocket* create_shared_udp_socket(int port) {
     try {
-        g_shared_socket = std::make_shared<SharedUDPSocket>(port);
+        g_shared_socket = std::make_unique<SharedUDPSocket>(port);
         return g_shared_socket->get();
     } catch (const std::exception& e) {
         std::cerr << "[udp] Socket creation failed: " << e.what() << "\n";
@@ -1320,42 +1080,6 @@ static void set_int_async(GObject* obj, const char* prop, int val) {
   }, new std::tuple<GObject*, const char*, int>(obj, prop, val));
 }
 
-static void set_bool_if_exists(GObject* obj, const char* prop, gboolean val) {
-    GParamSpec* pspec = g_object_class_find_property(G_OBJECT_GET_CLASS(obj), prop);
-    if (pspec) {
-        g_object_set(obj, prop, val, NULL);
-    }
-}
-
-static std::string choose_h264_encoder() {
-    // GPU öncelik sırası: NVIDIA > VAAPI > QSV > x264
-    if (has_nvidia_gpu()) {
-        GstElement* enc = gst_element_factory_make("nvh264enc", nullptr);
-        if (enc) {
-            gst_object_unref(enc);
-            return "nvh264enc";
-        }
-    }
-    
-    if (has_vaapi_gpu()) {
-        GstElement* enc = gst_element_factory_make("vaapih264enc", nullptr);
-        if (enc) {
-            gst_object_unref(enc);
-            return "vaapih264enc";
-        }
-    }
-    
-    if (has_qsv_gpu()) {
-        GstElement* enc = gst_element_factory_make("qsvh264enc", nullptr);
-        if (enc) {
-            gst_object_unref(enc);
-            return "qsvh264enc";
-        }
-    }
-    
-    return "x264enc"; // CPU fallback
-}
-
 static std::string g_last_encoder_name;
 
 static void set_encoder_bitrate(GstElement* enc, int kbps) {
@@ -1379,10 +1103,6 @@ struct NetworkProfile {
             base_mtu = new_base;
             rtp_mtu = base_mtu - RTP_HEADER_SIZE;
             chunk_mtu = rtp_mtu - sizeof(ChunkHeader);
-        }
-
-        friend std::ostream& operator<<(std::ostream& os, const MTUConfig& cfg) {
-            return os << cfg.base_mtu;
         }
     } mtu;
     
@@ -1515,18 +1235,16 @@ static void adaptive_net_loop(GstElement* enc, GstElement* pay, int start_kbps) 
         
         // Değişiklikleri uygula
         set_encoder_bitrate(enc, g_net_profile.bitrate_kbps);
-        set_int_async(G_OBJECT(pay), "mtu", g_net_profile.mtu.base_mtu);
+        set_int_async(G_OBJECT(pay), "mtu", g_net_profile.mtu);
         
         // Socket buffer güncelle
         int buf_bytes = g_net_profile.socket_buf_kb * 1024;
-        if (g_shared_socket) {
-            g_socket_set_option(g_shared_socket->get(), SOL_SOCKET, SO_SNDBUF, buf_bytes, nullptr);
-            g_socket_set_option(g_shared_socket->get(), SOL_SOCKET, SO_RCVBUF, buf_bytes, nullptr);
-        }
+        g_socket_set_option(shared_sock, SOL_SOCKET, SO_SNDBUF, buf_bytes, nullptr);
+        g_socket_set_option(shared_sock, SOL_SOCKET, SO_RCVBUF, buf_bytes, nullptr);
         
         // Log
         std::cout << "[adapt] bitrate=" << g_net_profile.bitrate_kbps
-                  << " kbps, mtu=" << g_net_profile.mtu.base_mtu
+                  << " kbps, mtu=" << g_net_profile.mtu
                   << ", jitter_buf=" << g_net_profile.jitter_buf_ms
                   << " ms, sock_buf=" << g_net_profile.socket_buf_kb
                   << " KB (score=" << g_net_profile.score() << ")\n";

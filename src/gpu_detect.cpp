@@ -1,30 +1,19 @@
 #include "gpu_detect.hpp"
+#include <gst/gst.h>
 #include <cstdlib>
-#include <fstream>
-#include <string>
 
-bool has_nvidia_gpu() {
-    std::ifstream f("/proc/driver/nvidia/version");
-    return f.good();
+static bool has_factory(const char* name) {
+  GstElementFactory* f = gst_element_factory_find(name);
+  if (f) { gst_object_unref(f); return true; }
+  return false;
 }
 
-bool has_vaapi_gpu() {
-    std::ifstream f("/dev/dri/renderD128");
-    return f.good();
-}
-
-bool has_qsv_gpu() {
-    std::ifstream f("/dev/dri/renderD128");
-    if (!f.good()) return false;
-    
-    // Intel GPU varlığını kontrol et
-    std::ifstream cpuinfo("/proc/cpuinfo");
-    std::string line;
-    while (std::getline(cpuinfo, line)) {
-        if (line.find("vendor_id") != std::string::npos && 
-            line.find("GenuineIntel") != std::string::npos) {
-            return true;
-        }
-    }
-    return false;
+std::string choose_h264_encoder() {
+  const char* force = std::getenv("NOVA_FORCE_X264");
+  if (force && *force=='1') return "x264enc";
+  if (has_factory("nvh264enc"))    return "nvh264enc";     // NVIDIA
+  if (has_factory("vaapih264enc")) return "vaapih264enc";  // VAAPI
+  if (has_factory("qsvh264enc"))   return "qsvh264enc";    // Intel QSV
+  if (has_factory("vah264enc"))    return "vah264enc";     // AMD (bazı distrolar)
+  return "x264enc"; // CPU fallback
 }

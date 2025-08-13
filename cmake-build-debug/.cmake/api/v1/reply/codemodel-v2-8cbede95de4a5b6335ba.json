@@ -9,7 +9,7 @@
 					"jsonFile" : "directory-.-Debug-f5ebdc15457944623624.json",
 					"minimumCMakeVersion" : 
 					{
-						"string" : "3.10"
+						"string" : "3.16"
 					},
 					"projectIndex" : 0,
 					"source" : ".",
@@ -27,7 +27,7 @@
 					[
 						0
 					],
-					"name" : "nova_engine",
+					"name" : "media_engine_test",
 					"targetIndexes" : 
 					[
 						0
@@ -39,7 +39,7 @@
 				{
 					"directoryIndex" : 0,
 					"id" : "nova_engine::@6890427a1f51a3e7e1df",
-					"jsonFile" : "target-nova_engine-Debug-147d221e6fde93c82222.json",
+					"jsonFile" : "target-nova_engine-Debug-601f4a15e45e4fe187ae.json",
 					"name" : "nova_engine",
 					"projectIndex" : 0
 				}

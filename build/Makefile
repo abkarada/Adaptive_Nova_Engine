@@ -153,6 +153,102 @@ src/gpu_detect.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/nova_engine.dir/build.make CMakeFiles/nova_engine.dir/src/gpu_detect.cpp.s
 .PHONY : src/gpu_detect.cpp.s
 
+src/media/gpu_memory.o: src/media/gpu_memory.cpp.o
+.PHONY : src/media/gpu_memory.o
+
+# target to build an object file
+src/media/gpu_memory.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/nova_engine.dir/build.make CMakeFiles/nova_engine.dir/src/media/gpu_memory.cpp.o
+.PHONY : src/media/gpu_memory.cpp.o
+
+src/media/gpu_memory.i: src/media/gpu_memory.cpp.i
+.PHONY : src/media/gpu_memory.i
+
+# target to preprocess a source file
+src/media/gpu_memory.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/nova_engine.dir/build.make CMakeFiles/nova_engine.dir/src/media/gpu_memory.cpp.i
+.PHONY : src/media/gpu_memory.cpp.i
+
+src/media/gpu_memory.s: src/media/gpu_memory.cpp.s
+.PHONY : src/media/gpu_memory.s
+
+# target to generate assembly for a file
+src/media/gpu_memory.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/nova_engine.dir/build.make CMakeFiles/nova_engine.dir/src/media/gpu_memory.cpp.s
+.PHONY : src/media/gpu_memory.cpp.s
+
+src/network/network_profile.o: src/network/network_profile.cpp.o
+.PHONY : src/network/network_profile.o
+
+# target to build an object file
+src/network/network_profile.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/nova_engine.dir/build.make CMakeFiles/nova_engine.dir/src/network/network_profile.cpp.o
+.PHONY : src/network/network_profile.cpp.o
+
+src/network/network_profile.i: src/network/network_profile.cpp.i
+.PHONY : src/network/network_profile.i
+
+# target to preprocess a source file
+src/network/network_profile.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/nova_engine.dir/build.make CMakeFiles/nova_engine.dir/src/network/network_profile.cpp.i
+.PHONY : src/network/network_profile.cpp.i
+
+src/network/network_profile.s: src/network/network_profile.cpp.s
+.PHONY : src/network/network_profile.s
+
+# target to generate assembly for a file
+src/network/network_profile.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/nova_engine.dir/build.make CMakeFiles/nova_engine.dir/src/network/network_profile.cpp.s
+.PHONY : src/network/network_profile.cpp.s
+
+src/network/shared_socket.o: src/network/shared_socket.cpp.o
+.PHONY : src/network/shared_socket.o
+
+# target to build an object file
+src/network/shared_socket.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/nova_engine.dir/build.make CMakeFiles/nova_engine.dir/src/network/shared_socket.cpp.o
+.PHONY : src/network/shared_socket.cpp.o
+
+src/network/shared_socket.i: src/network/shared_socket.cpp.i
+.PHONY : src/network/shared_socket.i
+
+# target to preprocess a source file
+src/network/shared_socket.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/nova_engine.dir/build.make CMakeFiles/nova_engine.dir/src/network/shared_socket.cpp.i
+.PHONY : src/network/shared_socket.cpp.i
+
+src/network/shared_socket.s: src/network/shared_socket.cpp.s
+.PHONY : src/network/shared_socket.s
+
+# target to generate assembly for a file
+src/network/shared_socket.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/nova_engine.dir/build.make CMakeFiles/nova_engine.dir/src/network/shared_socket.cpp.s
+.PHONY : src/network/shared_socket.cpp.s
+
+src/network/udp_stats.o: src/network/udp_stats.cpp.o
+.PHONY : src/network/udp_stats.o
+
+# target to build an object file
+src/network/udp_stats.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/nova_engine.dir/build.make CMakeFiles/nova_engine.dir/src/network/udp_stats.cpp.o
+.PHONY : src/network/udp_stats.cpp.o
+
+src/network/udp_stats.i: src/network/udp_stats.cpp.i
+.PHONY : src/network/udp_stats.i
+
+# target to preprocess a source file
+src/network/udp_stats.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/nova_engine.dir/build.make CMakeFiles/nova_engine.dir/src/network/udp_stats.cpp.i
+.PHONY : src/network/udp_stats.cpp.i
+
+src/network/udp_stats.s: src/network/udp_stats.cpp.s
+.PHONY : src/network/udp_stats.s
+
+# target to generate assembly for a file
+src/network/udp_stats.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/nova_engine.dir/build.make CMakeFiles/nova_engine.dir/src/network/udp_stats.cpp.s
+.PHONY : src/network/udp_stats.cpp.s
+
 src/nova_engine.o: src/nova_engine.cpp.o
 .PHONY : src/nova_engine.o
 
@@ -189,6 +285,18 @@ help:
 	@echo "... src/gpu_detect.o"
 	@echo "... src/gpu_detect.i"
 	@echo "... src/gpu_detect.s"
+	@echo "... src/media/gpu_memory.o"
+	@echo "... src/media/gpu_memory.i"
+	@echo "... src/media/gpu_memory.s"
+	@echo "... src/network/network_profile.o"
+	@echo "... src/network/network_profile.i"
+	@echo "... src/network/network_profile.s"
+	@echo "... src/network/shared_socket.o"
+	@echo "... src/network/shared_socket.i"
+	@echo "... src/network/shared_socket.s"
+	@echo "... src/network/udp_stats.o"
+	@echo "... src/network/udp_stats.i"
+	@echo "... src/network/udp_stats.s"
 	@echo "... src/nova_engine.o"
 	@echo "... src/nova_engine.i"
 	@echo "... src/nova_engine.s"

@@ -20,10 +20,6 @@
 		},
 		{
 			"isGenerated" : true,
-			"path" : "cmake-build-debug/CMakeFiles/3.30.5/CMakeCCompiler.cmake"
-		},
-		{
-			"isGenerated" : true,
 			"path" : "cmake-build-debug/CMakeFiles/3.30.5/CMakeCXXCompiler.cmake"
 		},
 		{
@@ -54,46 +50,6 @@
 		{
 			"isCMake" : true,
 			"isExternal" : true,
-			"path" : "/home/ryuzaki/Desktop/C++/clion-2024.3.4/bin/cmake/linux/x64/share/cmake-3.30/Modules/CMakeCInformation.cmake"
-		},
-		{
-			"isCMake" : true,
-			"isExternal" : true,
-			"path" : "/home/ryuzaki/Desktop/C++/clion-2024.3.4/bin/cmake/linux/x64/share/cmake-3.30/Modules/CMakeLanguageInformation.cmake"
-		},
-		{
-			"isCMake" : true,
-			"isExternal" : true,
-			"path" : "/home/ryuzaki/Desktop/C++/clion-2024.3.4/bin/cmake/linux/x64/share/cmake-3.30/Modules/Compiler/GNU-C.cmake"
-		},
-		{
-			"isCMake" : true,
-			"isExternal" : true,
-			"path" : "/home/ryuzaki/Desktop/C++/clion-2024.3.4/bin/cmake/linux/x64/share/cmake-3.30/Modules/Compiler/GNU.cmake"
-		},
-		{
-			"isCMake" : true,
-			"isExternal" : true,
-			"path" : "/home/ryuzaki/Desktop/C++/clion-2024.3.4/bin/cmake/linux/x64/share/cmake-3.30/Modules/Compiler/CMakeCommonCompilerMacros.cmake"
-		},
-		{
-			"isCMake" : true,
-			"isExternal" : true,
-			"path" : "/home/ryuzaki/Desktop/C++/clion-2024.3.4/bin/cmake/linux/x64/share/cmake-3.30/Modules/Platform/Linux-GNU-C.cmake"
-		},
-		{
-			"isCMake" : true,
-			"isExternal" : true,
-			"path" : "/home/ryuzaki/Desktop/C++/clion-2024.3.4/bin/cmake/linux/x64/share/cmake-3.30/Modules/Platform/Linux-GNU.cmake"
-		},
-		{
-			"isCMake" : true,
-			"isExternal" : true,
-			"path" : "/home/ryuzaki/Desktop/C++/clion-2024.3.4/bin/cmake/linux/x64/share/cmake-3.30/Modules/CMakeCommonLanguageInclude.cmake"
-		},
-		{
-			"isCMake" : true,
-			"isExternal" : true,
 			"path" : "/home/ryuzaki/Desktop/C++/clion-2024.3.4/bin/cmake/linux/x64/share/cmake-3.30/Modules/CMakeCXXInformation.cmake"
 		},
 		{
@@ -110,6 +66,11 @@
 			"isCMake" : true,
 			"isExternal" : true,
 			"path" : "/home/ryuzaki/Desktop/C++/clion-2024.3.4/bin/cmake/linux/x64/share/cmake-3.30/Modules/Compiler/GNU.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "/home/ryuzaki/Desktop/C++/clion-2024.3.4/bin/cmake/linux/x64/share/cmake-3.30/Modules/Compiler/CMakeCommonCompilerMacros.cmake"
 		},
 		{
 			"isCMake" : true,
@@ -144,11 +105,6 @@
 		{
 			"isCMake" : true,
 			"isExternal" : true,
-			"path" : "/home/ryuzaki/Desktop/C++/clion-2024.3.4/bin/cmake/linux/x64/share/cmake-3.30/Modules/FindCUDA.cmake"
-		},
-		{
-			"isCMake" : true,
-			"isExternal" : true,
 			"path" : "/home/ryuzaki/Desktop/C++/clion-2024.3.4/bin/cmake/linux/x64/share/cmake-3.30/Modules/FindThreads.cmake"
 		},
 		{
@@ -159,12 +115,12 @@
 		{
 			"isCMake" : true,
 			"isExternal" : true,
-			"path" : "/home/ryuzaki/Desktop/C++/clion-2024.3.4/bin/cmake/linux/x64/share/cmake-3.30/Modules/CheckIncludeFile.cmake"
+			"path" : "/home/ryuzaki/Desktop/C++/clion-2024.3.4/bin/cmake/linux/x64/share/cmake-3.30/Modules/CheckIncludeFileCXX.cmake"
 		},
 		{
 			"isCMake" : true,
 			"isExternal" : true,
-			"path" : "/home/ryuzaki/Desktop/C++/clion-2024.3.4/bin/cmake/linux/x64/share/cmake-3.30/Modules/CheckCSourceCompiles.cmake"
+			"path" : "/home/ryuzaki/Desktop/C++/clion-2024.3.4/bin/cmake/linux/x64/share/cmake-3.30/Modules/CheckCXXSourceCompiles.cmake"
 		},
 		{
 			"isCMake" : true,
@@ -180,21 +136,6 @@
 			"isCMake" : true,
 			"isExternal" : true,
 			"path" : "/home/ryuzaki/Desktop/C++/clion-2024.3.4/bin/cmake/linux/x64/share/cmake-3.30/Modules/FindPackageMessage.cmake"
-		},
-		{
-			"isCMake" : true,
-			"isExternal" : true,
-			"path" : "/home/ryuzaki/Desktop/C++/clion-2024.3.4/bin/cmake/linux/x64/share/cmake-3.30/Modules/FindPackageHandleStandardArgs.cmake"
-		},
-		{
-			"isCMake" : true,
-			"isExternal" : true,
-			"path" : "/home/ryuzaki/Desktop/C++/clion-2024.3.4/bin/cmake/linux/x64/share/cmake-3.30/Modules/FindPackageMessage.cmake"
-		},
-		{
-			"isCMake" : true,
-			"isExternal" : true,
-			"path" : "/home/ryuzaki/Desktop/C++/clion-2024.3.4/bin/cmake/linux/x64/share/cmake-3.30/Modules/FindCUDA/select_compute_arch.cmake"
 		}
 	],
 	"kind" : "cmakeFiles",
