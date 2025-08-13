@@ -1,7 +1,0 @@
-# ninja log v5
-0	131	1754746625397536222	CMakeFiles/nova_engine.dir/src/gpu_detect.cpp.o	a912ad0a788a3ab6
-0	348	1754753432851414142	CMakeFiles/nova_engine.dir/src/nova_engine.cpp.o	12d0146d40d8e67
-348	394	1754753432896414122	nova_engine	99162d28a0b319c2
-1	133	1754754380717255650	CMakeFiles/nova_engine.dir/src/gpu_detect.cpp.o	a912ad0a788a3ab6
-1	348	1754754380932255614	CMakeFiles/nova_engine.dir/src/nova_engine.cpp.o	12d0146d40d8e67
-349	396	1754754380979255606	nova_engine	99162d28a0b319c2
