@@ -22,6 +22,23 @@
 static std::atomic<bool> g_stop(false);
 static GMainLoop* g_loop = nullptr;
 
+// ---------- Headless/ENV helper ----------
+static void ensure_runtime_env() {
+  // Wayland kullanan bazı sink'ler XDG_RUNTIME_DIR ister.
+  if (!getenv("XDG_RUNTIME_DIR")) {
+    char buf[64];
+    snprintf(buf, sizeof(buf), "/run/user/%d", getuid());
+    setenv("XDG_RUNTIME_DIR", buf, 0); // yoksa set et (0: var ise dokunma)
+  }
+}
+static bool headless_env() {
+  const char* d = getenv("DISPLAY");
+  const char* w = getenv("WAYLAND_DISPLAY");
+  const char* xdg = getenv("XDG_RUNTIME_DIR");
+  // GUI yoksa ya da XDG yoksa headless kabul edelim
+  return ((!d && !w) || !(xdg && *xdg));
+}
+
 static void sig_handler(int){
   g_stop = true;
   if (g_loop) g_main_loop_quit(g_loop);
@@ -30,15 +47,15 @@ static void sig_handler(int){
 struct Args {
   std::string peer_ip;
 
-  // === YENİ: tek port tasarımı ===
+  // === tek port tasarımı ===
   int media_port; // hem send hem recv (RTP)
   int ctrl_port;  // hem send hem recv (PING/PONG)
 
   bool use_ts = false;
-  int  mtu = 1200;
-  int  bitrate_kbps = 18000;
-  int  keyint = 60;
-  int  latency_ms = 200;
+  int  mtu = 1000;          // daha güvenli başlangıç
+  int  bitrate_kbps = 12000;// dalgalanan LAN için daha stabil
+  int  keyint = 30;         // toparlama hızlı
+  int  latency_ms = 800;    // başlangıç jitter
 
   std::string device = "/dev/video0";
   int width = 1280, height = 720, fps = 30;
@@ -263,7 +280,32 @@ static bool auto_select_best_camera(Args& a) {
   return true;
 }
 
-// ---- ortak UDP GSocket (tek port) oluşturucu ----
+// =================== ADAPTİF DURUMLAR & ÖLÇÜMLER ===================
+static std::atomic<int> g_rtt_ewma_ms{0};   // kontrol kanalından EWMA RTT(app)
+static std::atomic<int> g_local_rx_kbps{0}; // bu uçta ölçülen alınan kbps (receiver identity)
+static std::atomic<int> g_peer_rx_kbps{0};  // karşı uçtan gelen RX raporu (STAT)
+
+struct RateMeter { std::atomic<long long> bytes{0}; };
+
+static void on_handoff_meter(GstElement* /*identity*/, GstBuffer* buffer, GstPad* /*pad*/, gpointer user_data) {
+  auto* m = static_cast<RateMeter*>(user_data);
+  if (!m || !buffer) return;
+  gsize sz = gst_buffer_get_size(buffer);
+  m->bytes.fetch_add((long long)sz, std::memory_order_relaxed);
+}
+
+static void rate_meter_loop(RateMeter* meter, std::atomic<int>* out_kbps) {
+  int ewma = 0;
+  while (!g_stop) {
+    long long bytes = meter->bytes.exchange(0);
+    int kbps = (int)((bytes * 8) / 1000);
+    ewma = (ewma > 0) ? (ewma * 7 + kbps * 3) / 10 : kbps;
+    out_kbps->store(ewma);
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+  }
+}
+
+// --------- ortak UDP GSocket (tek port) ----------
 static GSocket* create_shared_udp_socket(int port) {
   GError* err = nullptr;
   GSocket* s = g_socket_new(G_SOCKET_FAMILY_IPV4, G_SOCKET_TYPE_DATAGRAM, G_SOCKET_PROTOCOL_UDP, &err);
@@ -273,11 +315,16 @@ static GSocket* create_shared_udp_socket(int port) {
     return nullptr;
   }
 
-  // REUSEADDR/REUSEPORT → aynı portu hem send hem recv için kullanabilmek adına
+  // REUSEADDR/REUSEPORT
   g_socket_set_option(s, SOL_SOCKET, SO_REUSEADDR, 1, nullptr);
 #ifdef SO_REUSEPORT
   g_socket_set_option(s, SOL_SOCKET, SO_REUSEPORT, 1, nullptr);
 #endif
+
+  // DSCP/Buffer tuning (best-effort; hata dönse de kritik değil)
+  g_socket_set_option(s, IPPROTO_IP, IP_TOS, 0xb8, nullptr);              // DSCP EF (46)
+  g_socket_set_option(s, SOL_SOCKET, SO_SNDBUF, 4*1024*1024, nullptr);
+  g_socket_set_option(s, SOL_SOCKET, SO_RCVBUF, 4*1024*1024, nullptr);
 
   GInetAddress* any = g_inet_address_new_any(G_SOCKET_FAMILY_IPV4);
   GSocketAddress* sa = g_inet_socket_address_new(any, port);
@@ -294,7 +341,7 @@ static GSocket* create_shared_udp_socket(int port) {
   return s;
 }
 
-// ---- kontrol kanalı (PING/PONG) — tek soket, tek port ----
+// =================== KONTROL KANALI: PING/PONG + STAT ===================
 class ControlChannel {
  public:
   ControlChannel(const std::string& peer_ip, int port)
@@ -333,11 +380,18 @@ class ControlChannel {
  private:
   void send_loop() {
     using namespace std::chrono;
+    int tick = 0;
     while (!g_stop) {
       long long now = duration_cast<milliseconds>(steady_clock::now().time_since_epoch()).count();
       char buf[64];
       int n = snprintf(buf, sizeof(buf), "PING %lld", now);
       sendto(fd_, buf, n, 0, (sockaddr*)&peer_addr_, sizeof(peer_addr_));
+
+      if ((++tick & 1) == 0) { // ~1s'de bir STAT
+        int rx = g_local_rx_kbps.load();
+        int m = snprintf(buf, sizeof(buf), "STAT %d", rx);
+        sendto(fd_, buf, m, 0, (sockaddr*)&peer_addr_, sizeof(peer_addr_));
+      }
       std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
   }
@@ -355,7 +409,14 @@ class ControlChannel {
         long long t0 = atoll(buf+5);
         auto now = std::chrono::duration_cast<std::chrono::milliseconds>(
                      std::chrono::steady_clock::now().time_since_epoch()).count();
-        std::cout << "[ctrl] RTT ~ " << (now - t0) << " ms\n";
+        int rtt = (int)(now - t0);
+        std::cout << "[ctrl] RTT(app) ~ " << rtt << " ms\n";
+        int prev = g_rtt_ewma_ms.load();
+        int ewma = (prev > 0) ? (prev * 7 + rtt * 3) / 10 : rtt;
+        g_rtt_ewma_ms.store(ewma);
+      } else if (!strncmp(buf, "STAT ", 5)) {
+        int rx = atoi(buf + 5); // kbps
+        g_peer_rx_kbps.store(rx);
       }
     }
   }
@@ -367,7 +428,7 @@ class ControlChannel {
   std::thread send_thr_, recv_thr_;
 };
 
-// ---- GStreamer Bus watcher (ERROR/EOS -> quit) ----
+// =================== BUS & STDIN ===================
 static gboolean bus_cb(GstBus* /*bus*/, GstMessage* msg, gpointer user_data) {
   const char* tag = static_cast<const char*>(user_data);
   switch (GST_MESSAGE_TYPE(msg)) {
@@ -388,7 +449,6 @@ static gboolean bus_cb(GstBus* /*bus*/, GstMessage* msg, gpointer user_data) {
   return TRUE;
 }
 
-// ---- STDIN watcher (ESC/q -> quit) ----
 static gboolean stdin_cb(GIOChannel* ch, GIOCondition cond, gpointer) {
   if (cond & (G_IO_HUP|G_IO_ERR|G_IO_NVAL)) { return TRUE; }
   gchar buf[16]; gsize n=0; GError* err=nullptr;
@@ -404,12 +464,99 @@ static gboolean stdin_cb(GIOChannel* ch, GIOCondition cond, gpointer) {
     }
   }
   if (err) g_error_free(err);
-  return TRUE; // watch devam
+  return TRUE;
 }
 
-// ---- sender (tek port için paylaşılan socket kullanır) ----
-static GstElement* build_sender(const Args& a, GSocket* shared_sock) {
+// =================== ADAPTİF JITTER (RTT'ye göre) ===================
+static void adaptive_jbuf_loop(GstElement* jbuf) {
+  g_object_ref(jbuf);
+  int last_set = -1;
+  while (!g_stop) {
+    int rtt = g_rtt_ewma_ms.load();
+    if (rtt > 0) {
+      int target = rtt * 3 / 2 + 50; // 1.5*RTT + 50ms
+      if (target < 150) target = 150;
+      if (target > 4000) target = 4000;
+      if (last_set < 0 || std::abs(target - last_set) >= 100) {
+        g_object_set(G_OBJECT(jbuf), "latency", target, NULL);
+        last_set = target;
+        std::cout << "[jbuf] adapt latency=" << target
+                  << " ms (rtt_ewma=" << rtt << ")\n";
+      }
+    }
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+  }
+  g_object_unref(jbuf);
+}
+
+// thread-safe property set (main context üzerinden)
+static void set_int_async(GObject* obj, const char* prop, int val) {
+  GMainContext* ctx = g_main_context_default();
+  g_main_context_invoke(ctx, [](gpointer data)->gboolean {
+    auto tup = static_cast<std::tuple<GObject*, const char*, int>*>(data);
+    g_object_set(std::get<0>(*tup), std::get<1>(*tup), std::get<2>(*tup), NULL);
+    delete tup;
+    return G_SOURCE_REMOVE;
+  }, new std::tuple<GObject*, const char*, int>(obj, prop, val));
+}
+
+static std::string g_last_encoder_name;
+
+static void set_encoder_bitrate(GstElement* enc, int kbps) {
+  const std::string& n = g_last_encoder_name;
+  if (n == "qsvh264enc" || n == "vah264enc") {
+    set_int_async(G_OBJECT(enc), "bitrate", kbps * 1000); // bps
+  } else {
+    set_int_async(G_OBJECT(enc), "bitrate", kbps);        // kbps
+  }
+}
+
+// kbps'a göre MTU seçimi (eşikleri istediğin gibi oynat)
+static int choose_mtu_for_kbps(int kbps) {
+  if (kbps <= 6000)  return 800;
+  if (kbps <= 9000)  return 960;
+  if (kbps <= 12000) return 1000;
+  return 1200;
+}
+
+// peer RX & RTT'ye göre bitrate/MTU adaptasyonu
+static void adaptive_net_loop(GstElement* enc, GstElement* pay, int start_kbps) {
+  int cur_kbps = start_kbps;
+  int cur_mtu  = 1200; // pay'da runtime değiştirilecek
+
+  while (!g_stop) {
+    int peer_rx = g_peer_rx_kbps.load(); // kbps (karşı tarafın gerçekten alabildiği)
+    int rtt     = g_rtt_ewma_ms.load();
+
+    if (peer_rx > 0) {
+      int target = (peer_rx * 80) / 100;   // %80 headroom
+      if (rtt > 200) target = target * 80 / 100; // RTT yüksekse biraz daha indir
+      if (target < 2000) target = 2000;    // alt sınır
+      if (target > start_kbps) target = start_kbps;
+
+      if (std::abs(target - cur_kbps) >= 500) { // histerezis
+        cur_kbps = target;
+        set_encoder_bitrate(enc, cur_kbps);
+        std::cout << "[adapt] enc.bitrate -> " << cur_kbps
+                  << " kbps (peer_rx=" << peer_rx << ", rtt=" << rtt << ")\n";
+      }
+
+      int want_mtu = choose_mtu_for_kbps(cur_kbps);
+      if (want_mtu != cur_mtu) {
+        cur_mtu = want_mtu;
+        set_int_async(G_OBJECT(pay), "mtu", cur_mtu);
+        std::cout << "[adapt] pay.mtu -> " << cur_mtu << "\n";
+      }
+    }
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+  }
+}
+
+// =================== SENDER ===================
+static GstElement* build_sender(const Args& a, GSocket* shared_sock,
+                                GstElement** out_enc, GstElement** out_pay) {
   std::string enc_name = choose_h264_encoder();
+  g_last_encoder_name = enc_name;
   std::cerr << "[nova] encoder: " << enc_name << std::endl;
 
   GstElement* pipe = gst_pipeline_new("sender");
@@ -465,7 +612,7 @@ static GstElement* build_sender(const Args& a, GSocket* shared_sock) {
   GstElement *conv2  = gst_element_factory_make("videoconvert", "conv2"); CHECK_ELEM(conv2, "videoconvert");
   GstElement *flip2  = gst_element_factory_make("videoflip", "flip2"); CHECK_ELEM(flip2, "videoflip");
   set_arg(flip2, "method", "horizontal-flip");
-  GstElement *sink2  = gst_element_factory_make("autovideosink", "local_preview"); CHECK_ELEM(sink2, "autovideosink");
+  GstElement *sink2  = gst_element_factory_make(headless_env() ? "fakesink" : "autovideosink", "local_preview"); CHECK_ELEM(sink2, headless_env() ? "fakesink" : "autovideosink");
   set_bool(sink2, "sync", TRUE);
 
   gst_bin_add_many(GST_BIN(pipe), qprev, conv2, flip2, sink2, NULL);
@@ -503,12 +650,9 @@ static GstElement* build_sender(const Args& a, GSocket* shared_sock) {
   set_int(pay, "pt", 96); set_int(pay, "mtu", a.mtu); set_int(pay, "config-interval", 1);
 
   GstElement *sink = gst_element_factory_make("udpsink", "udpsink"); CHECK_ELEM(sink, "udpsink");
-  // hedef: karşı tarafın media_port'u
   set_str(sink, "host", a.peer_ip);
   set_int(sink, "port", a.media_port);
   set_bool(sink, "sync", FALSE); set_bool(sink, "async", FALSE);
-
-  // === KRİTİK: aynı porttan gönderim için aynı GSocket'i kullan ===
   g_object_set(G_OBJECT(sink), "socket", g_object_ref(shared_sock), NULL);
 
   gst_bin_add_many(GST_BIN(pipe), q1, enc, parse, pay, sink, NULL);
@@ -519,20 +663,19 @@ static GstElement* build_sender(const Args& a, GSocket* shared_sock) {
   gst_bus_add_watch(bus, bus_cb, (gpointer)"sender");
   gst_object_unref(bus);
 
+  if (out_enc) *out_enc = enc;
+  if (out_pay) *out_pay = pay;
   return pipe;
 }
 
-// ---- receiver (tek port için paylaşılan socket kullanır) ----
-static GstElement* build_receiver(const Args& a, GSocket* shared_sock) {
+// =================== RECEIVER ===================
+static GstElement* build_receiver(const Args& a, GSocket* shared_sock,
+                                  GstElement** out_jbuf, RateMeter** out_rxmeter) {
   GstElement* pipe = gst_pipeline_new("receiver");
 
   auto src = gst_element_factory_make("udpsrc", "udpsrc");
   CHECK_ELEM(src, "udpsrc");
-
-  // === KRİTİK: udpsrc de aynı GSocket'i kullanıyor (aynı port) ===
   g_object_set(G_OBJECT(src), "socket", g_object_ref(shared_sock), NULL);
-
-  // Not: "port" vermiyoruz; socket zaten bağlı (bind) durumda.
 
   auto capf = gst_element_factory_make("capsfilter", "capf");
   CHECK_ELEM(capf, "capsfilter");
@@ -551,17 +694,31 @@ static GstElement* build_receiver(const Args& a, GSocket* shared_sock) {
   auto jbuf = gst_element_factory_make("rtpjitterbuffer", "jbuf");
   CHECK_ELEM(jbuf, "rtpjitterbuffer");
   set_int(jbuf, "latency", a.latency_ms);
-  set_bool(jbuf, "mode", TRUE);
+  set_bool(jbuf, "drop-on-late", TRUE);
+  // 'mode' gibi hatalı/uyumsuz property yok; sadece geçerli olanları set ediyoruz.
 
   auto depay = (!a.use_ts)
     ? gst_element_factory_make("rtph264depay", "depay")
     : gst_element_factory_make("rtpmp2tdepay", "depay");
   CHECK_ELEM(depay, "depay");
 
+  // RX hız ölçer
+  auto rxid = gst_element_factory_make("identity", "rxmeter");
+  CHECK_ELEM(rxid, "identity");
+  g_object_set(G_OBJECT(rxid), "signal-handoffs", TRUE, NULL);
+  static RateMeter* rxmeter = new RateMeter();
+  g_signal_connect(rxid, "handoff", G_CALLBACK(on_handoff_meter), rxmeter);
+
   auto parse = gst_element_factory_make("h264parse", "parse");
   CHECK_ELEM(parse, "h264parse");
-  auto dec = gst_element_factory_make("avdec_h264", "dec");
-  CHECK_ELEM(dec, "avdec_h264");
+
+  // Decoder (GPU varsa tercih et)
+  GstElement* dec = gst_element_factory_make("nvh264dec", "dec");
+  if (!dec) dec = gst_element_factory_make("vah264dec", "dec");
+  if (!dec) dec = gst_element_factory_make("qsvh264dec", "dec");
+  if (!dec) dec = gst_element_factory_make("avdec_h264", "dec");
+  CHECK_ELEM(dec, "h264 decoder");
+
   auto conv = gst_element_factory_make("videoconvert", "conv");
   CHECK_ELEM(conv, "videoconvert");
 
@@ -569,17 +726,17 @@ static GstElement* build_receiver(const Args& a, GSocket* shared_sock) {
   CHECK_ELEM(flip, "videoflip");
   set_arg(flip, "method", "horizontal-flip");
 
-  auto sink = gst_element_factory_make("autovideosink", "sink");
-  CHECK_ELEM(sink, "autovideosink");
+  auto sink = gst_element_factory_make(headless_env() ? "fakesink" : "autovideosink", "sink");
+  CHECK_ELEM(sink, headless_env() ? "fakesink" : "autovideosink");
   set_bool(sink, "sync", TRUE);
 
   if (!a.use_ts) {
-    gst_bin_add_many(GST_BIN(pipe), src, capf, jbuf, depay, parse, dec, conv, flip, sink, NULL);
-    if (!gst_element_link_many(src, capf, jbuf, depay, parse, dec, conv, flip, sink, NULL)) return nullptr;
+    gst_bin_add_many(GST_BIN(pipe), src, capf, jbuf, depay, rxid, parse, dec, conv, flip, sink, NULL);
+    if (!gst_element_link_many(src, capf, jbuf, depay, rxid, parse, dec, conv, flip, sink, NULL)) return nullptr;
   } else {
     auto tsdemux = gst_element_factory_make("tsdemux", "tsdemux");
     CHECK_ELEM(tsdemux, "tsdemux");
-    gst_bin_add_many(GST_BIN(pipe), src, capf, jbuf, depay, tsdemux, parse, dec, conv, flip, sink, NULL);
+    gst_bin_add_many(GST_BIN(pipe), src, capf, jbuf, depay, tsdemux, rxid, parse, dec, conv, flip, sink, NULL);
     if (!gst_element_link_many(src, capf, jbuf, depay, tsdemux, NULL)) return nullptr;
     g_signal_connect(tsdemux, "pad-added",
       G_CALLBACK(+[] (GstElement* /*demux*/, GstPad* newpad, gpointer user_data){
@@ -588,7 +745,7 @@ static GstElement* build_receiver(const Args& a, GSocket* shared_sock) {
         if (!gst_pad_is_linked(sinkpad)) gst_pad_link(newpad, sinkpad);
         gst_object_unref(sinkpad);
       }), parse);
-    if (!gst_element_link_many(parse, dec, conv, flip, sink, NULL)) return nullptr;
+    if (!gst_element_link_many(rxid, parse, dec, conv, flip, sink, NULL)) return nullptr;
   }
 
   // bus watch
@@ -596,10 +753,14 @@ static GstElement* build_receiver(const Args& a, GSocket* shared_sock) {
   gst_bus_add_watch(bus, bus_cb, (gpointer)"receiver");
   gst_object_unref(bus);
 
+  if (out_jbuf) *out_jbuf = jbuf;
+  if (out_rxmeter) *out_rxmeter = rxmeter;
   return pipe;
 }
 
+// =================== MAIN ===================
 int main(int argc, char** argv) {
+  ensure_runtime_env(); // XDG_RUNTIME_DIR yoksa set et
   gst_init(&argc, &argv);
   std::signal(SIGINT, sig_handler);
   std::signal(SIGTERM, sig_handler);
@@ -624,7 +785,7 @@ int main(int argc, char** argv) {
             << " " << a.width << "x" << a.height
             << "@" << a.fps << " selected\n";
 
-  // === TEK MEDYA PORTU İÇİN ORTAK GSOCKET ===
+  // TEK MEDYA PORTU
   GSocket* media_sock = create_shared_udp_socket(a.media_port);
   if (!media_sock) {
     std::cerr << "Medya soketi oluşturulamadı.\n";
@@ -634,16 +795,29 @@ int main(int argc, char** argv) {
   ControlChannel ctrl(a.peer_ip, a.ctrl_port);
   if (!ctrl.start()) { std::cerr << "Control channel start failed\n"; g_object_unref(media_sock); return 1; }
 
-  auto sender   = build_sender(a, media_sock);
-  auto receiver = build_receiver(a, media_sock);
-  if (!sender || !receiver) { ctrl.stop(); g_object_unref(media_sock); return 1; }
+  GstElement *enc=nullptr, *pay=nullptr, *jbuf=nullptr;
+  RateMeter* rxmeter=nullptr;
+
+  auto sender   = build_sender(a, media_sock, &enc, &pay);
+  auto receiver = build_receiver(a, media_sock, &jbuf, &rxmeter);
+  if (!sender || !receiver || !enc || !pay || !jbuf || !rxmeter) {
+    ctrl.stop();
+    if (sender) gst_object_unref(sender);
+    if (receiver) gst_object_unref(receiver);
+    g_object_unref(media_sock);
+    return 1;
+  }
+
+  // Adaptasyon thread'leri
+  std::thread jadapt_thr([&]{ adaptive_jbuf_loop(jbuf); });
+  std::thread rx_stat_thr([&]{ rate_meter_loop(rxmeter, &g_local_rx_kbps); });
+  std::thread net_adapt_thr([&]{ adaptive_net_loop(enc, pay, a.bitrate_kbps); });
 
   gst_element_set_state(receiver, GST_STATE_PLAYING);
   gst_element_set_state(sender,   GST_STATE_PLAYING);
 
   // ---- GLib main loop + STDIN watcher (ESC/q) ----
   g_loop = g_main_loop_new(NULL, FALSE);
-
   GIOChannel* ch = g_io_channel_unix_new(STDIN_FILENO);
   g_io_channel_set_encoding(ch, NULL, NULL);
   g_io_channel_set_flags(ch, (GIOFlags)(g_io_channel_get_flags(ch) | G_IO_FLAG_NONBLOCK), NULL);
@@ -652,6 +826,11 @@ int main(int argc, char** argv) {
   g_main_loop_run(g_loop);
 
   // ---- shutdown ----
+  g_stop = true;
+  if (net_adapt_thr.joinable()) net_adapt_thr.join();
+  if (rx_stat_thr.joinable())   rx_stat_thr.join();
+  if (jadapt_thr.joinable())    jadapt_thr.join();
+
   gst_element_set_state(sender,   GST_STATE_NULL);
   gst_element_set_state(receiver, GST_STATE_NULL);
   gst_object_unref(sender);
