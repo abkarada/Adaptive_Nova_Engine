@@ -1,0 +1,1 @@
+/usr/bin/c++ CMakeFiles/nova_engine.dir/src/nova_engine.cpp.o CMakeFiles/nova_engine.dir/src/gpu_detect.cpp.o -o nova_engine  -lgstapp-1.0 -lgstvideo-1.0 -lgstbase-1.0 -lgstreamer-1.0 -lgobject-2.0 -lglib-2.0 /usr/lib/x86_64-linux-gnu/libisal.so /usr/lib/x86_64-linux-gnu/libcudart_static.a -ldl /usr/lib/x86_64-linux-gnu/librt.a -lva -lpthread 

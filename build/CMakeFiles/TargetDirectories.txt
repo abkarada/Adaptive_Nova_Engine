@@ -1,0 +1,3 @@
+/home/ryuzaki/Desktop/media_engine_test_2/build/CMakeFiles/nova_engine.dir
+/home/ryuzaki/Desktop/media_engine_test_2/build/CMakeFiles/edit_cache.dir
+/home/ryuzaki/Desktop/media_engine_test_2/build/CMakeFiles/rebuild_cache.dir

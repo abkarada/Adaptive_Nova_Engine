@@ -1,3 +1,5 @@
 #pragma once
-#include <string>
-std::string choose_h264_encoder();
+
+bool has_nvidia_gpu();
+bool has_vaapi_gpu();
+bool has_qsv_gpu();
